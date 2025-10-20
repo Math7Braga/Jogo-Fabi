@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notificação - Texto Interativo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+body{margin:0;font-family:Poppins,sans-serif;background:#0b0b0b;color:#e9e9e9;display:flex;justify-content:center;align-items:center;min-height:100vh;}
+.container{width:95%;max-width:750px;}
+.menu{display:flex;justify-content:center;gap:12px;margin-bottom:16px;}
+.menu button{padding:8px 16px;background:#ff3b3b;color:#fff;border:none;border-radius:8px;cursor:pointer;transition:.2s;}
+.menu button:hover{background:#ff5b5b;}
+.card{background:#151515;border-radius:20px;padding:30px;box-shadow:0 0 30px rgba(255,0,0,0.3);}
+h1,h2{color:#ff3b3b;margin:6px 0;text-align:center;}
+p{color:#ccc;font-size:16px;}
+.chapter{color:#ccc;font-size:14px;text-align:center;margin-bottom:12px;}
+.choices{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:20px;}
+.choice-card{background:rgba(255,255,255,0.02);border:1px solid rgba(255,0,0,0.3);border-radius:16px;padding:16px;cursor:pointer;transition:.2s;}
+.choice-card:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(255,0,0,0.5);}
+.icon{font-size:22px;color:#ff3b3b;margin-bottom:8px;display:block;text-align:center;}
+.meter{height:16px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;margin-top:16px;transition:all .3s ease;}
+.meter-fill{display:block;height:100%;background:linear-gradient(90deg,#4CAF50,#FFD700,#ff3b3b);width:0%;transition:width 0.4s ease;}
+#stress-label{text-align:center;font-size:13px;color:#aaa;margin-top:4px;font-style:italic;}
+#instructions{display:none;background:#151515;padding:20px;border-radius:16px;margin-top:12px;color:#ccc;font-size:15px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="menu">
+    <button onclick="startGame()">Novo Jogo</button>
+    <button onclick="showInstructions()">Instruções</button>
+    <button onclick="exitGame()">Sair</button>
+  </div>
+
+  <div id="instructions">
+    <h2>Instruções</h2>
+    <p>Escolha entre as opções para progredir na história. O nível de estresse muda conforme suas decisões e pode afetar o final. Se o estresse atingir 100%, ocorre um colapso; se cair abaixo de 5%, você mantém a frieza.</p>
+  </div>
+
+  <div class="card">
+    <div class="chapter" id="chapter">Capítulo 0</div>
+    <h1 id="titulo">Bem-vindo a <em>Notificação</em></h1>
+    <p id="texto">Clique em "Novo Jogo" para iniciar a narrativa.</p>
+    <div class="choices" id="botoes"></div>
+
+    <div class="meter"><span class="meter-fill" id="meterFill"></span></div>
+    <div id="stress-label">Barra de Estresse</div>
+  </div>
+</div>
+
+<script>
+let estresse = 20;
+let sceneId = '';
+let chapterNum = 0;
+
+const scenes = {
+  // INTRO
+  intro:{
+    title:'Uma notificação aparece...',
+    text:'“Sei onde você mora.” O que você faz?',
+    choices:[
+      {id:'ignorar1',label:'Ignorar',desc:'Fingir que nada aconteceu.',stress:5},
+      {id:'mostrar1',label:'Mostrar a um amigo',desc:'Pedir opinião de alguém de confiança.',stress:-5},
+      {id:'investigar1',label:'Investigar',desc:'Checar a origem da mensagem.',stress:8},
+      {id:'responder1',label:'Responder',desc:'Tentar descobrir quem é.',stress:10}
+    ]
+  },
+
+  // CAMINHO IGNORAR
+  ignorar1:{
+    title:'Silêncio tenso',
+    text:'Você tenta esquecer, mas à noite ouve passos do lado de fora. O que faz?',
+    choices:[
+      {id:'espiar',label:'Espiar pela janela',desc:'Olhar discretamente.',stress:10},
+      {id:'trancar',label:'Trancar portas',desc:'Fingir que nada aconteceu.',stress:-5}
+    ]
+  },
+  espiar:{
+    title:'A sombra',
+    text:'Você vê uma sombra. Quando tenta gravar com o celular, ela desaparece.',
+    choices:[
+      {id:'final_recaida',label:'Jogar o bilhete fora',desc:'Tentar esquecer.',stress:5},
+      {id:'final_seguranca',label:'Ir à polícia',desc:'Procurar ajuda.',stress:-10}
+    ]
+  },
+  trancar:{
+    title:'A flor na porta',
+    text:'O som para, mas na manhã seguinte há uma flor e um bilhete: “Você fez bem.”',
+    choices:[
+      {id:'final_seguranca',label:'Ir à polícia',desc:'Entregar o bilhete.',stress:-10},
+      {id:'final_recaida',label:'Jogar o bilhete fora',desc:'Ignorar o ocorrido.',stress:5}
+    ]
+  },
+
+  // CAMINHO MOSTRAR A UM AMIGO
+  mostrar1:{
+    title:'Preocupação compartilhada',
+    text:'Seu amigo acha que é trote, mas promete ficar de olho. Na noite seguinte, ele te liga assustado: alguém o seguiu até em casa. O que faz?',
+    choices:[
+      {id:'vai_amigo',label:'Ir até a casa dele',desc:'Ver o que aconteceu.',stress:8},
+      {id:'liga_policia_amigo',label:'Mandar ele ligar pra polícia',desc:'Melhor não arriscar.',stress:-4}
+    ]
+  },
+  vai_amigo:{
+    title:'Casa vazia',
+    text:'A casa está aberta e vazia. O celular dele no chão, tocando.',
+    choices:[
+      {id:'final_culpa',label:'Continuar',desc:'Prossiga.',stress:10}
+    ]
+  },
+  liga_policia_amigo:{
+    title:'Sem rastros',
+    text:'A polícia chega, mas não encontra ninguém. Dias depois, uma nova mensagem: “Devia ter vindo ver.”',
+    choices:[
+      {id:'final_frio',label:'Continuar calmo e buscar ajuda policial',desc:'Prossiga.',stress:-5}
+    ]
+  },
+
+  // CAMINHO INVESTIGAR
+  investigar1:{
+    title:'Rastreando a origem',
+    text:'Você tenta rastrear a mensagem. Parece vir de um endereço IP local. O que faz?',
+    choices:[
+      {id:'ir_endereco',label:'Ir até o endereço',desc:'Conferir pessoalmente.',stress:30},
+      {id:'mostrar_policia',label:'Mostrar à polícia',desc:'Buscar ajuda.',stress:-5}
+    ]
+  },
+  ir_endereco:{
+    title:'O prédio abandonado',
+    text:'Você encontra uma parede coberta com fotos suas. O medo cresce.',
+    choices:[
+      {id:'final_colapso',label:'Continuar',desc:'Prossiga.',stress:50}
+    ]
+  },
+  mostrar_policia:{
+    title:'Sem respostas',
+    text:'Eles dizem que o IP é público e não dá pra rastrear mais.',
+    choices:[
+      {id:'final_obsessao',label:'Continuar',desc:'Prossiga.',stress:5}
+    ]
+  },
+
+  // CAMINHO RESPONDER
+  responder1:{
+    title:'A resposta vem',
+    text:'Você pergunta: “Quem é você?” e lê: “Alguém que te observa há muito tempo.” O que faz?',
+    choices:[
+      {id:'marcar_encontro',label:'Marcar um encontro',desc:'Descobrir a verdade.',stress:20},
+      {id:'bloquear',label:'Bloquear o número',desc:'Encerrar contato.',stress:-10}
+    ]
+  },
+  marcar_encontro:{
+    title:'O local vazio',
+    text:'Você vai ao local combinado. Ninguém aparece. Quando volta pra casa, a porta está destrancada.',
+    choices:[
+      {id:'ir_endereco',label:'Investigar o prédio abandonado',desc:'Arriscado...',stress:30}
+    ]
+  },
+  bloquear:{
+    title:'Sem fuga',
+    text:'Você bloqueia o número, mas ele muda. As mensagens continuam.',
+    choices:[
+      {id:'final_frio',label:'Continuar',desc:'Prossiga.',stress:-10}
+    ]
+  },
+
+  // FINAIS
+  final_seguranca:{title:'Final — Segurança',text:'A polícia investiga e prende um vizinho obcecado por você.',choices:[]},
+  final_recaida:{title:'Final — Recaída',text:'As mensagens voltam semanas depois.',choices:[]},
+  final_culpa:{title:'Final — Culpa',text:'Você vive com medo, se perguntando o que teria acontecido se tivesse feito diferente.',choices:[]},
+  final_obsessao:{title:'Final — Obsessão',text:'Você se perde na investigação, sem saber se o stalker existe ou é sua imaginação.',choices:[]},
+  final_encontro:{title:'Final — O Encontro',text:'Ninguém aparece. Porta destrancada.',choices:[]},
+  final_colapso:{title:'Final — Colapso',text:'O estresse é insuportável. Você entra em colapso e perde a noção da realidade.',choices:[]},
+  final_frio:{title:'Final — Frieza',text:'Você permanece calmo, observando tudo com clareza. Nada parece te abalar.',choices:[]}
+};
+
+function renderScene(){
+  if(!sceneId) return;
+  const s = scenes[sceneId];
+  document.getElementById('titulo').textContent = s.title;
+  document.getElementById('texto').textContent = s.text;
+  const botoes = document.getElementById('botoes'); botoes.innerHTML='';
+  s.choices.forEach(c=>{
+    const div = document.createElement('div'); div.className='choice-card';
+    div.innerHTML=`<span class='icon'><i class='fa-solid fa-circle-play'></i></span><strong>${c.label}</strong><p style='font-size:12px;color:#aaa'>${c.desc}</p>`;
+    div.onclick=()=>handleChoice(c);
+    botoes.appendChild(div);
+  });
+  updateMeter();
+  document.getElementById('chapter').textContent = `Capítulo ${chapterNum}`;
+}
+
+function handleChoice(choice){
+  chapterNum++;
+  estresse += choice.stress;
+  estresse = Math.min(100, Math.max(0, estresse));
+
+  // Checa os finais de estresse
+  if(estresse >= 100){ sceneId='final_colapso'; renderScene(); return; }
+  if(estresse <= 5){ sceneId='final_frio'; renderScene(); return; }
+
+  sceneId = choice.id;
+  renderScene();
+}
+
+function updateMeter(){
+  const fill = document.getElementById('meterFill');
+  fill.style.width = estresse + '%';
+  if(estresse < 30){ fill.style.background='linear-gradient(90deg,#4CAF50,#9acd32)'; }
+  else if(estresse < 70){ fill.style.background='linear-gradient(90deg,#FFD700,#ff9900)'; }
+  else { fill.style.background='linear-gradient(90deg,#ff3b3b,#b30000)'; }
+}
+
+function startGame(){
+  sceneId='intro'; chapterNum=1; estresse=20;
+  document.getElementById('instructions').style.display='none';
+  renderScene();
+}
+
+function showInstructions(){document.getElementById('instructions').style.display='block';}
+
+function exitGame(){
+  sceneId=''; chapterNum=0; estresse=20;
+  document.getElementById('instructions').style.display='none';
+  document.getElementById('titulo').textContent = 'Bem-vindo a Notificação';
+  document.getElementById('texto').textContent = 'Clique em "Novo Jogo" para iniciar a narrativa.';
+  document.getElementById('botoes').innerHTML = '';
+  document.getElementById('meterFill').style.width = '0%';
+  document.getElementById('chapter').textContent = '';
+}
+
+renderScene();
+</script>
+</body>
+</html>
